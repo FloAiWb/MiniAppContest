@@ -22,6 +22,15 @@ const bot = new TelegramBot(token, { polling: true });
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   bot.sendMessage(chatId, `Вы написали: ${msg.text}`);
+// ... ваш прежний код выше
+bot.onText(/\/start/, (msg) => {
+  bot.sendMessage(msg.chat.id, 'Открыть магазин', {
+    reply_markup: {
+      inline_keyboard: [[{
+        text: 'Перейти в витрину 🛒',
+        web_app: { url: process.env.WEBAPP_URL }   // добавим WEBAPP_URL в Render
+      }]]
+    }
+  });
 });
-
-// 5) При необходимости — ещё вебхуки, команды и т.д.
+ необходимости — ещё вебхуки, команды и т.д.
