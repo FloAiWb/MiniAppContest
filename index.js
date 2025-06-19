@@ -1,40 +1,52 @@
-// index.js
-import express from "express";
-import TelegramBot from "node-telegram-bot-api";
-import path from "path";
-import dotenv from "dotenv";
-dotenv.config();
+import dotenv from 'dotenv';
+dotenv.config();                       // подтягиваем .env
+import express from 'express';
+import TelegramBot from 'node-telegram-bot-api';
 
-const app   = express();
-const port  = process.env.PORT || 3000;
-const token = process.env.BOT_TOKEN;
-const host  = process.env.SITE_URL;              // https://miniappcontest-anin.onrender.com
+const app  = express();
+const port = process.env.PORT || 3000;
 
-/* 1. отдаём статические файлы витрины */
-app.use("/shop", express.static(path.join(process.cwd(), "public")));
+const token        = process.env.BOT_TOKEN;
+const host         = process.env.SITE_URL;     // https://….onrender.com
+const webhookPath  = process.env.WEBHOOK_PATH; // /bot<token>
+const webhookURL   = `${host}${webhookPath}`;  // полная ссылка
 
-/* 2. health-check */
-app.get("/", (_req, res) => res.send("OK — bot & shop running"));
+// 1) проверка «жив»
+app.get('/', (_req, res) => res.send('OK — bot running'));
 
-/* 3. стартуем сервер */
-app.listen(port, () => console.log(`✅ Express listening on :${port}`));
+// 2) парсинг JSON-тел
+app.use(express.json());
 
-/* 4. Telegram через long-polling (оставим как есть, работает) */
-const bot = new TelegramBot(token, { polling: true });
+// 3) инициализация бота в режиме WEBHOOK
+const bot = new TelegramBot(token, { webHook: { port } });
 
-/* 5. обработчики */
+// 4) регистрируем маршрут у Express,
+//    чтобы Telegram посылал апдейты сюда
+app.post(webhookPath, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+// 5) ставим вебхук (один раз при старте)
+(async () => {
+  await bot.setWebHook(webhookURL);
+  console.log(`✅ Webhook set: ${webhookURL}`);
+})();
+
+// 6) ваши handlers
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "Добро пожаловать!", {
-    reply_markup: {
-      inline_keyboard: [[{
-        text: "Открыть магазин 🛍️",
-        web_app: { url: `${host}/shop` }        // ← открываем нашу витрину
-      }]]
+  bot.sendMessage(
+    msg.chat.id,
+    'Добро пожаловать! Нажмите кнопку, чтобы открыть витрину.',
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Открыть магазин 🛍', web_app: { url: `${host}/shop` } }]
+        ]
+      }
     }
-  });
+  );
 });
 
-bot.on("message", (msg) => {
-  if (!/\/start/.test(msg.text))
-    bot.sendMessage(msg.chat.id, `Вы написали: ${msg.text}`);
-});
+// 7) запуск Express
+app.listen(port, () => console.log(`✅  Express listening on :${port}`));
