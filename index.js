@@ -1,41 +1,46 @@
-// index.js ─ полный
-import dotenv      from 'dotenv';
-import express     from 'express';
-import TelegramBot from 'node-telegram-bot-api';
-
-dotenv.config();                     // BOT_TOKEN и PUBLIC_URL берём из .env/Render
+// index.js
+import express      from 'express';
+import path         from 'path';
+import { fileURLToPath } from 'url';
+import TelegramBot  from 'node-telegram-bot-api';
 
 const TOKEN = process.env.BOT_TOKEN;
-const PORT  = process.env.PORT || 10000;
-const URL   = process.env.PUBLIC_URL;            // ➜ https://<ваш-сабдомен>.onrender.com
+const PORT  = process.env.PORT || 3000;
 
-if (!TOKEN || !URL) {
-  console.error('⛔  BOT_TOKEN или PUBLIC_URL не заданы в переменных окружения');
-  process.exit(1);
-}
+const bot  = new TelegramBot(TOKEN, { polling: false });
+const app  = express();
 
-const app = express();
-app.use(express.json());             // Telegram шлёт JSON
+//--- service utils ---
+app.use(express.json());
 
-/* 1. создаём бота без polling */
-const bot = new TelegramBot(TOKEN);
+// health-check
+app.get('/', (_, res) => res.send('OK'));
 
-/* 2. говорим Telegram, куда слать обновления */
-await bot.setWebHook(`${URL}/bot${TOKEN}`);
+// статика «витрины»
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use('/shop', express.static(path.join(__dirname, 'public')));
 
-/* 3. Express-роут, принимающий Webhook */
-app.post(`/bot${TOKEN}`, (req, res) => {
-  bot.processUpdate(req.body);       // прокидываем обнову в библиотеку
+// веб-хук
+app.post('/webhook', (req, res) => {
+  bot.processUpdate(req.body);
   res.sendStatus(200);
 });
 
-/* 4. хендлеры */
-bot.on('message', (msg) => {
-  bot.sendMessage(msg.chat.id, `Вы написали: ${msg.text}`);
+// команды бота
+bot.onText(/\/start/, msg => {
+  const url = `https://${process.env.RENDER_EXTERNAL_HOSTNAME}/shop`;
+
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'Открыть магазин 🛍️', web_app: { url } }]
+      ]
+    }
+  };
+
+  bot.sendMessage(msg.chat.id, 'Добро пожаловать! Нажмите кнопку, чтобы открыть витрину.', opts);
 });
 
-/* 5. health-check Render’а */
-app.get('/', (_req, res) => res.send('OK'));
-
-/* 6. старт сервера */
-app.listen(PORT, () => console.log(`✅  Express & Webhook on :${PORT}`));
+app.listen(PORT, () =>
+  console.log(`✅  Express & Webhook on :${PORT}`)
+);
