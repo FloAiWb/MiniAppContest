@@ -1,39 +1,50 @@
-// index.js  – всё, что нужно боту на данном этапе
-import 'dotenv/config';
+// index.js  — полный файл
 import express from 'express';
 import TelegramBot from 'node-telegram-bot-api';
+import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app   = express();
-const port  = process.env.PORT  || 3000;           // Render передаст свой порт
-const token = process.env.BOT_TOKEN;               // Токен бота
-const site  = process.env.SITE_URL;                // 👉 URL витрины
+const port  = process.env.PORT || 3000;
+const token = process.env.BOT_TOKEN;
 
-// ──────────────────────────────────────────────────────────
-// 1.  Health-check
+// 1. «живой» энд-пойнт
 app.get('/', (_req, res) => res.send('OK — bot running'));
-app.listen(port, () => console.log(`✅  Express & Telegram Webhook listening on :${port}`));
 
-// 2.  Telegram-бот (long polling, так проще всего)
-const bot = new TelegramBot(token, { polling: true });
+// 2. статическая витрина
+const publicDir = path.join(process.cwd(), 'public');
+app.use('/shop', express.static(publicDir));
 
-// /start  – шлём кнопку-WebApp
-bot.onText(/\/start/i, (msg) => {
-  const chatId = msg.chat.id;
-
-  const keyboard = {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: '🛍  Открыть магазин',
-            web_app: { url: site }        // ← Telegram откроет витрину внутри чата
-          }
-        ]
-      ]
-    }
-  };
-
-  bot.sendMessage(chatId, 'Добро пожаловать! Нажмите кнопку 👇', keyboard);
+// 3. стартуем веб-сервер
+app.listen(port, () => {
+  console.log(`✅  Express & Telegram Webhook listening on :${port}`);
 });
 
-// (позже: обработка WebAppData, оплат и т.д.)
+// 4. Telegram-бот (polling)
+const bot = new TelegramBot(token, { polling: true });
+
+// 5. /start ➜ кнопка «Открыть магазин»
+bot.onText(/\/start/, (msg) => {
+  const opts = {
+    reply_markup: {
+      inline_keyboard: [[
+        {
+          text: 'Открыть магазин',
+          web_app: { url: `${process.env.SITE_URL}` }
+        }
+      ]]
+    }
+  };
+  bot.sendMessage(msg.chat.id,
+    'Добро пожаловать! Нажмите кнопку, чтобы открыть витрину.',
+    opts
+  );
+});
+
+// эхо-ответ на любое сообщение
+bot.on('message', (msg) => {
+  if (/\/start/.test(msg.text)) return;  // уже обработали выше
+  bot.sendMessage(msg.chat.id, `Вы написали: ${msg.text}`);
+});
