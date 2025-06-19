@@ -1,36 +1,40 @@
-// index.js
-require('dotenv').config();                 // если используете .env
-const express = require('express');
-const TelegramBot = require('node-telegram-bot-api');
+// index.js — backend + инициализация бота
+import 'dotenv/config';
+import express from 'express';
+import TelegramBot from 'node-telegram-bot-api';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+const PORT       = process.env.PORT      || 3000;
+const BOT_TOKEN  = process.env.BOT_TOKEN || '';
+const WEBAPP_URL = process.env.WEBAPP_URL || 'https://example.com';
+
+// 1) HTTP-сервер + раздача статических файлов (Vite build в папке /dist)
 const app = express();
-const port = process.env.PORT || 3000;      // PORT придёт из Render
-const token = process.env.BOT_TOKEN;        // BOT_TOKEN вы задали в переменных окружения
+app.use(express.static(path.join(__dirname, 'dist')));
+app.get('/health', (_req, res) => res.send('OK'));
 
-// 1) Лаконичный HTTP-эндпоинт для проверки «живости» приложения
-app.get('/', (_req, res) => res.send('OK'));
+app.listen(PORT, () => console.log(`Express listening on ${PORT}`));
 
-// 2) Запускаем сервер
-app.listen(port, () => {
-  console.log(`Express listening on port ${port}`);
-});
+// 2) Telegram-бот (long polling)
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-// 3) Инициализируем Telegram-бота (long polling)
-const bot = new TelegramBot(token, { polling: true });
-
-// 4) Опишите здесь все ваши обработчики
-bot.on('message', (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, `Вы написали: ${msg.text}`);
-// ... ваш прежний код выше
+// /start → кнопка «Перейти в витрину»
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(msg.chat.id, 'Открыть магазин', {
     reply_markup: {
-      inline_keyboard: [[{
-        text: 'Перейти в витрину 🛒',
-        web_app: { url: process.env.WEBAPP_URL }   // добавим WEBAPP_URL в Render
-      }]]
+      inline_keyboard: [
+        [{ text: 'Перейти в витрину 🛒', web_app: { url: WEBAPP_URL } }]
+      ]
     }
   });
 });
- необходимости — ещё вебхуки, команды и т.д.
+
+// echo-ответ для всех прочих сообщений
+bot.on('message', (msg) => {
+  if (msg.text?.startsWith('/start')) return;
+  bot.sendMessage(msg.chat.id, `Вы написали: ${msg.text}`);
+});
