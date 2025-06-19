@@ -1,50 +1,50 @@
-// index.js  — полный файл
-import express from 'express';
-import TelegramBot from 'node-telegram-bot-api';
-import path from 'path';
-import dotenv from 'dotenv';
+// index.js
+import express from "express";
+import TelegramBot from "node-telegram-bot-api";
+import path from "path";
+import dotenv from "dotenv";
 
 dotenv.config();
 
 const app   = express();
 const port  = process.env.PORT || 3000;
 const token = process.env.BOT_TOKEN;
+const host  = process.env.SITE_URL;            // https://miniappcontest-anin.onrender.com
 
-// 1. «живой» энд-пойнт
-app.get('/', (_req, res) => res.send('OK — bot running'));
+/* ---------- статическая витрина ---------- */
+app.use("/shop", express.static(path.join(process.cwd(), "public")));
 
-// 2. статическая витрина
-const publicDir = path.join(process.cwd(), 'public');
-app.use('/shop', express.static(publicDir));
+/* ---------- health-check ---------- */
+app.get("/", (_r, res) => res.send("OK — bot & webhook running"));
 
-// 3. стартуем веб-сервер
-app.listen(port, () => {
-  console.log(`✅  Express & Telegram Webhook listening on :${port}`);
+/* ---------- запускаем HTTP-сервер ---------- */
+const server = app.listen(port, () =>
+  console.log(`✅ Express listening on :${port}`)
+);
+
+/* ---------- Telegram через Webhook ---------- */
+const bot = new TelegramBot(token);
+const webhookPath = `/bot${token}`;            // «секретный» URL
+bot.setWebHook(`${host}${webhookPath}`);
+
+app.post(webhookPath, express.json(), (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
 });
 
-// 4. Telegram-бот (polling)
-const bot = new TelegramBot(token, { polling: true });
-
-// 5. /start ➜ кнопка «Открыть магазин»
+/* ---------- обработчики ---------- */
 bot.onText(/\/start/, (msg) => {
-  const opts = {
+  bot.sendMessage(msg.chat.id, "Добро пожаловать!", {
     reply_markup: {
-      inline_keyboard: [[
-        {
-          text: 'Открыть магазин',
-          web_app: { url: `${process.env.SITE_URL}` }
-        }
-      ]]
+      inline_keyboard: [[{
+        text: "Открыть магазин",
+        web_app: { url: `${host}/shop` }
+      }]]
     }
-  };
-  bot.sendMessage(msg.chat.id,
-    'Добро пожаловать! Нажмите кнопку, чтобы открыть витрину.',
-    opts
-  );
+  });
 });
 
-// эхо-ответ на любое сообщение
-bot.on('message', (msg) => {
-  if (/\/start/.test(msg.text)) return;  // уже обработали выше
-  bot.sendMessage(msg.chat.id, `Вы написали: ${msg.text}`);
+bot.on("message", (msg) => {
+  if (!/\/start/.test(msg.text))
+    bot.sendMessage(msg.chat.id, `Вы написали: ${msg.text}`);
 });
