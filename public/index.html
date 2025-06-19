@@ -1,35 +1,46 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
   <title>Магазин</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body{font-family:system-ui,Arial;width:100%;max-width:450px;margin:0 auto;padding:1rem;background:#111;color:#fff}
-    .card{background:#222;border-radius:12px;padding:1rem;margin-bottom:1rem}
-    .card img{width:100%;border-radius:8px}
-    .btn{display:block;width:100%;padding:.75rem 1rem;margin-top:.5rem;border:0;border-radius:8px;background:#2e8b57;color:#fff;font-weight:600;cursor:pointer}
+    body{font-family:sans-serif;margin:0;padding:1rem;background:#111;color:#fafafa}
+    h1{font-size:1.2rem}
+    .card{background:#222;border-radius:8px;padding:1rem;margin-bottom:1rem}
+    .btn{display:block;width:100%;padding:.7rem 1rem;margin-top:1rem;
+         background:#4caf50;border:none;border-radius:6px;color:#fff;font-size:1rem}
   </style>
 </head>
 <body>
-  <h2>Витрина (демо)</h2>
+  <h1>💎 Тестовая витрина</h1>
 
-  <div class="card">
-    <img src="https://placehold.co/400x300?text=Товар+1" alt="Товар 1">
-    <h3>Товар 1</h3>
-    <p>Цена — <b>380 ₽</b></p>
-    <button class="btn" onclick="alert('Добавлено в корзину (пока демо)')">
-      Добавить в корзину
-    </button>
-  </div>
+  <div id="list"></div>
 
-  <div class="card">
-    <img src="https://placehold.co/400x300?text=Товар+2" alt="Товар 2">
-    <h3>Товар 2</h3>
-    <p>Цена — <b>520 ₽</b></p>
-    <button class="btn" onclick="alert('Добавлено в корзину (пока демо)')">
-      Добавить в корзину
-    </button>
-  </div>
+  <script>
+    // пример товара
+    const products = [
+      { id:1, title:'Кулон стальной', price:380 },
+      { id:2, title:'Браслет кожаный', price:550 }
+    ];
+
+    const list = document.getElementById('list');
+    products.forEach(p=>{
+      const card = document.createElement('div');
+      card.className='card';
+      card.innerHTML = `<b>${p.title}</b><br>Цена: <b>${p.price} ₽</b>
+                        <button class="btn" onclick="buy(${p.id})">Купить</button>`;
+      list.appendChild(card);
+    });
+
+    function buy(id){
+      Telegram.WebApp.showAlert('Заказ оформлен! (fake)');
+    }
+
+    // настроим цвет кнопки «оплатить» внизу (если нужно)
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();                   // разворачиваем на весь экран
+  </script>
 </body>
 </html>
