@@ -1,5 +1,5 @@
 {
-  "name": "miniapp-shop-bot",
+  "name": "miniapp-contest-shop",
   "version": "1.0.0",
   "type": "module",
 
@@ -10,7 +10,7 @@
   "dependencies": {
     "express": "^4.19.2",
     "dotenv": "^16.4.5",
-    "node-telegram-bot-api": "^0.72.0"
+    "node-telegram-bot-api": "^0.61.2"
   },
 
   "engines": {
