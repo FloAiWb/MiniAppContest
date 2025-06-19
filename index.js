@@ -1,46 +1,48 @@
-// index.js
-import express      from 'express';
-import path         from 'path';
-import { fileURLToPath } from 'url';
-import TelegramBot  from 'node-telegram-bot-api';
+// index.js  (CommonJS → оставить как есть)
+require('dotenv').config();
+const express = require('express');
+const bodyParser = require('body-parser');
+const TelegramBot = require('node-telegram-bot-api');
 
+const PORT  = process.env.PORT || 10000;
 const TOKEN = process.env.BOT_TOKEN;
-const PORT  = process.env.PORT || 3000;
+const URL   = process.env.BASE_URL;           // https://miniappcontest-anin.onrender.com
 
-const bot  = new TelegramBot(TOKEN, { polling: false });
-const app  = express();
+const app = express();
+app.use(bodyParser.json());
 
-//--- service utils ---
-app.use(express.json());
+// ===== статические файлы storefront
+app.use('/shop', express.static('public'));
 
-// health-check
-app.get('/', (_, res) => res.send('OK'));
+// ===== API из витрины (push заказа)
+app.post('/api/order',(req,res)=>{
+  console.log('[order]',req.body);
+  res.sendStatus(200);
+});
 
-// статика «витрины»
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-app.use('/shop', express.static(path.join(__dirname, 'public')));
+// ===== Telegram bot
+const bot   = new TelegramBot(TOKEN, {polling:false});
+bot.setWebHook(`${URL}/bot${TOKEN}`);
 
-// веб-хук
-app.post('/webhook', (req, res) => {
+app.post(`/bot${TOKEN}`, (req,res)=>{
   bot.processUpdate(req.body);
   res.sendStatus(200);
 });
 
-// команды бота
-bot.onText(/\/start/, msg => {
-  const url = `https://${process.env.RENDER_EXTERNAL_HOSTNAME}/shop`;
-
-  const opts = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Открыть магазин 🛍️', web_app: { url } }]
+// /start — шлём кнопку с ссылкой на витрину
+bot.onText(/\/start/,msg=>{
+  bot.sendMessage(msg.chat.id,'Добро пожаловать!',{
+    reply_markup:{
+      inline_keyboard:[
+        [{text:'Открыть магазин 🛍️', web_app:{url:`${URL}/shop`}}]
       ]
     }
-  };
-
-  bot.sendMessage(msg.chat.id, 'Добро пожаловать! Нажмите кнопку, чтобы открыть витрину.', opts);
+  });
 });
 
-app.listen(PORT, () =>
-  console.log(`✅  Express & Webhook on :${PORT}`)
-);
+// ловим sendData из витрины
+bot.on('web_app_data',ctx=>{
+  bot.sendMessage(ctx.chat.id,`📦 Ваш заказ:\n${ctx.web_app_data.data}`);
+});
+
+app.listen(PORT,()=>console.log('✅  Express & Webhook on :'+PORT));
