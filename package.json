@@ -1,17 +1,17 @@
 {
-  "name": "miniappcontest",
+  "name": "telegram-mini-shop-bot",
   "version": "1.0.0",
-  "private": true,
-
+  "description": "Простейший Telegram-бот + Express для Render.com",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "engines": {
-    "node": ">=14"
+    "node": ">=18"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "telegraf": "^4.12.2"
+    "dotenv": "^16.4.1",
+    "express": "^4.19.2",
+    "node-telegram-bot-api": "^0.64.0"
   }
 }
