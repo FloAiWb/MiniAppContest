@@ -1,25 +1,13 @@
 {
-  "name": "miniappcontest",
+  "name": "miniapp-bot",
   "version": "1.0.0",
-  "description": "Telegram Mini-App: простая витрина + бот",
   "type": "module",
-  "engines": {
-    "node": ">=18"
-  },
-
   "scripts": {
-    "render-build": "echo \"nothing to build\"",
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "node index.js"
   },
-
   "dependencies": {
+    "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "node-telegram-bot-api": "^0.63.0",
-    "dotenv": "^16.4.5"
-  },
-
-  "devDependencies": {
-    "nodemon": "^3.1.0"
+    "node-telegram-bot-api": "^0.69.2"
   }
 }
