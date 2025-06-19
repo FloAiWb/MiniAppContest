@@ -1,33 +1,25 @@
 {
-  "name": "telegram-mini-shop",
+  "name": "miniappcontest",
   "version": "1.0.0",
+  "description": "Telegram Mini-App: простая витрина + бот",
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
 
   "scripts": {
-    // back-end
+    "render-build": "echo \"nothing to build\"",
     "start": "node index.js",
-
-    // front-end
-    "dev:web": "cd webapp && vite",
-    "build:web": "cd webapp && vite build",
-
-    // общий билд для Render
-    "render-build": "yarn build:web"
+    "dev": "nodemon index.js"
   },
 
   "dependencies": {
     "express": "^4.19.2",
-    "node-telegram-bot-api": "^0.61.2"
+    "node-telegram-bot-api": "^0.63.0",
+    "dotenv": "^16.4.5"
   },
+
   "devDependencies": {
-    "vite": "^5.2.0",
-    "@vitejs/plugin-react": "^4.0.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "classnames": "^2.5.1",
-    "autoprefixer": "^10.4.17",
-    "postcss": "^8.4.34",
-    "tailwindcss": "^3.4.4"
+    "nodemon": "^3.1.0"
   }
 }
