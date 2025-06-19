@@ -11,6 +11,6 @@
     "node-telegram-bot-api": "0.72.4"
   },
   "engines": {
-    "node": ">=18 <23"          // Node 24 иногда выдаёт experimental-warning; ограничим до 22
+    "node": ">=18 <23"
   }
 }
