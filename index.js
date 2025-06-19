@@ -1,68 +1,39 @@
-// ───────────────────────────────────────────────
-// index.js — полноценный вариант “как есть”
-// ───────────────────────────────────────────────
-
-// ⬇️ 1. Загружаем переменные из .env (если файл есть локально)
-import dotenv from 'dotenv';
+// index.js  (ES-module, поэтому используем import/export)
+// -------------------------------------------------------
+// 1. Загружаем переменные из .env
+import dotenv      from 'dotenv';
 dotenv.config();
 
-// ⬇️ 2. Подключаем зависимости
-import express from 'express';
+// 2. Подключаем зависимости
+import express     from 'express';
 import TelegramBot from 'node-telegram-bot-api';
 
-// ⬇️ 3. Базовые переменные окружения
-const port  = process.env.PORT || 3000;          // Render передаёт свой PORT
-const token = process.env.BOT_TOKEN;             // Вы задали в Environment
-const host  = process.env.SITE_URL               // https://miniappcontest-anin.onrender.com
-             || `https://miniappcontest-anin.onrender.com`;
+// 3. Читаем конфигурацию из окружения (Render передаёт PORT сам)
+const PORT  = process.env.PORT  || 10000;   // порт Express-сервера
+const TOKEN = process.env.BOT_TOKEN;        // токен вашего бота
 
-// Путь и URL вебхука формируем гарантированно правильно
-const webhookPath = `/bot${token}`;              // начинаем со “/”
-const webhookURL  = `${host}${webhookPath}`;     // полный публичный URL
-
-// ⬇️ 4. Express-приложение
+// 4. Запускаем Express
 const app = express();
-app.use(express.json());
 
-// Маршрут-приёмник Telegram-вебхука
-app.post(webhookPath, (req, res) => {
-  bot.processUpdate(req.body);   // передаём апдейт боту
-  res.sendStatus(200);
+// Health-check, чтобы Render видел, что сервис «жив»
+app.get('/', (_req, res) => res.send('OK'));
+
+// ВАЖНО: вызываем app.listen **один** раз!
+app.listen(PORT, () => {
+  console.log(`✅  Express listening on :${PORT}`);
 });
 
-// Проверочный эндпоинт “жив/не жив”
-app.get('/', (_req, res) => res.send('OK — bot running'));
+/* ------------------------------------------------------------------
+   Ниже идёт вся логика Telegram-бота. Она НЕ должна делать второй
+   app.listen — Express уже запущен.
+-------------------------------------------------------------------*/
 
-// ⬇️ 5. Запускаем HTTP-сервер
-app.listen(port, () => console.log(`✅ Express listening on :${port}`));
+const bot = new TelegramBot(TOKEN, { polling: true });
 
-// ⬇️ 6. Telegram-бот (режим вебхука)
-const bot = new TelegramBot(token, { webHook: { port } });
-
-// Регистрируем вебхук у Telegram
-(async () => {
-  await bot.setWebHook(webhookURL);
-  console.log(`✅ Webhook set: ${webhookURL}`);
-})();
-
-// ⬇️ 7. Обработчики бота
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(
-    msg.chat.id,
-    'Добро пожаловать! Нажмите кнопку, чтобы открыть витрину.',
-    {
-      reply_markup: {
-        inline_keyboard: [[
-          { text: 'Открыть магазин 🛍', web_app: { url: `${host}/shop` } }
-        ]]
-      }
-    }
-  );
-});
-
-// пример “эхо”-обработчика (можно удалить)
+// Простейший эхо-обработчик
 bot.on('message', (msg) => {
-  if (msg.text && !msg.text.startsWith('/')) {
-    bot.sendMessage(msg.chat.id, `Вы написали: «${msg.text}»`);
-  }
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, `Вы написали: ${msg.text}`);
 });
+
+// Здесь можно добавлять другие обработчики (команды, callback-query и т.д.)
