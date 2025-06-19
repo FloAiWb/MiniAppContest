@@ -1,12 +1,35 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Магазин Mini-App</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Магазин</title>
+  <style>
+    body{font-family:system-ui,Arial;width:100%;max-width:450px;margin:0 auto;padding:1rem;background:#111;color:#fff}
+    .card{background:#222;border-radius:12px;padding:1rem;margin-bottom:1rem}
+    .card img{width:100%;border-radius:8px}
+    .btn{display:block;width:100%;padding:.75rem 1rem;margin-top:.5rem;border:0;border-radius:8px;background:#2e8b57;color:#fff;font-weight:600;cursor:pointer}
+  </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
+  <h2>Витрина (демо)</h2>
+
+  <div class="card">
+    <img src="https://placehold.co/400x300?text=Товар+1" alt="Товар 1">
+    <h3>Товар 1</h3>
+    <p>Цена — <b>380 ₽</b></p>
+    <button class="btn" onclick="alert('Добавлено в корзину (пока демо)')">
+      Добавить в корзину
+    </button>
+  </div>
+
+  <div class="card">
+    <img src="https://placehold.co/400x300?text=Товар+2" alt="Товар 2">
+    <h3>Товар 2</h3>
+    <p>Цена — <b>520 ₽</b></p>
+    <button class="btn" onclick="alert('Добавлено в корзину (пока демо)')">
+      Добавить в корзину
+    </button>
+  </div>
 </body>
 </html>
