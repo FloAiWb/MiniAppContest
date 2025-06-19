@@ -1,0 +1,45 @@
+<!-- public/shop.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Магазин</title>
+  <style>
+    body{font-family:system-ui;margin:0;padding:1rem;background:#111;color:#eee}
+    h1{margin-top:0}
+    .card{background:#222;border:1px solid #333;border-radius:8px;padding:1rem;margin-bottom:1rem}
+    button{width:100%;padding:.6rem;border:0;border-radius:6px;background:#0088cc;color:#fff;font-weight:600}
+    .price{font-size:1.1rem;font-weight:700;margin:.5rem 0}
+  </style>
+</head>
+<body>
+  <h1>Каталог</h1>
+
+  <div id="products"></div>
+
+  <script>
+    // упрощённый «каталог» прямо в браузе
+    const goods = [
+      { id: 1, title: "Жетон 50×28 глянец (10 шт)", price: 380 },
+      { id: 2, title: "Жетон 50×28 сатин  (10 шт)", price: 380 }
+    ];
+
+    const root = document.getElementById("products");
+    goods.forEach(g => {
+      root.insertAdjacentHTML("beforeend", `
+        <div class="card">
+          <div>${g.title}</div>
+          <div class="price">${g.price}&nbsp;₽</div>
+          <button onclick="add(${g.id})">Добавить в корзину</button>
+        </div>`
+      );
+    });
+
+    function add(id){
+      alert("Товар "+id+" добавлен (это заглушка)");
+      // здесь будет логика WebApp.postEvent / оплаты
+    }
+  </script>
+</body>
+</html>
