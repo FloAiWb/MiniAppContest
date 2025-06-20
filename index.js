@@ -1,63 +1,81 @@
-/* index.js — CommonJS  */
-require("dotenv").config();         // .env (BOT_TOKEN, DATABASE_URL, BASE_URL …)
+/*-------------------------------------------------
+ *  index.js   —  Express-сервер + Telegram-бот
+ *------------------------------------------------*/
 
-const path         = require("path");
-const express      = require("express");
-const bodyParser   = require("body-parser");
-const TelegramBot  = require("node-telegram-bot-api");
-const productRoute = require("./routes/products");   // ← наш API-роутер
+require('dotenv').config();                // .env: BOT_TOKEN, DATABASE_URL, BASE_URL
 
-const PORT  = process.env.PORT       || 10000;
-const TOKEN = process.env.BOT_TOKEN;                 // задаётся в Render → Environment
-const URL   = process.env.BASE_URL;                  // https://xxxx.onrender.com
+const express     = require('express');
+const path        = require('path');
+const TelegramBot = require('node-telegram-bot-api');
+const { Pool }    = require('pg');
 
-//--------------------------------------------------
-//  Express
-//--------------------------------------------------
+const PORT  = process.env.PORT      || 10000;
+const URL   = process.env.BASE_URL;        // https://miniappcontest-anin.onrender.com
+const TOKEN = process.env.BOT_TOKEN;
+const DB    = process.env.DATABASE_URL;    // строка подключения к Render-Postgres
+
+/* ----------  PostgreSQL  ---------- */
+const pool = new Pool({
+  connectionString: DB,
+  ssl: { rejectUnauthorized: false }       // Render-Postgres требует SSL
+});
+
+/* ----------  Express  ---------- */
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
 
-// статика мини-приложения (React/Vite билд лежит в public/)
-app.use("/shop", express.static(path.join(__dirname, "public")));
+/* статика мини-приложения */
+app.use('/shop', express.static(path.join(__dirname, 'public')));
 
-// JSON-API для мини-приложения
-app.use("/api", productRoute);      // ← теперь действительно Router, а не «Module»
+/* REST-эндпоинт: список товаров */
+app.get('/api/products', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT article, name, size FROM products ORDER BY name'
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error('[api/products]', e);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
 
-// тестовый энд-поинт «оплата» (можно убрать)
-app.post("/api/order", (req, res) => {
-  console.log("[ORDER]", req.body);
+/* «оформление заказа» – пока просто лог */
+app.post('/api/order', (req, res) => {
+  console.log('[ORDER]', req.body);
   res.sendStatus(200);
 });
 
-//--------------------------------------------------
-//  Telegram Bot — webhook
-//--------------------------------------------------
-const bot = new TelegramBot(TOKEN, { polling: false });
+/* ----------  Telegram-бот  ---------- */
+const bot = new TelegramBot(TOKEN);
 bot.setWebHook(`${URL}/bot${TOKEN}`);
 
-// входящие апдейты от Telegram
+/* Webhook-endpoint */
 app.post(`/bot${TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
 });
 
-// /start ➜ кнопка «Открыть магазин»
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "Добро пожаловать!", {
+/* /start ➜ кнопка «Открыть магазин» */
+bot.onText(/\/start/, msg => {
+  bot.sendMessage(msg.chat.id, 'Добро пожаловать!', {
     reply_markup: {
       inline_keyboard: [
-        [{ text: "Открыть магазин 🛍️", web_app: { url: `${URL}/shop` } }],
-      ],
-    },
+        [{ text: 'Открыть магазин 🛍️', web_app: { url: `${URL}/shop` } }]
+      ]
+    }
   });
 });
 
-// данные, присланные из mini-app
-bot.on("web_app_data", (ctx) => {
-  bot.sendMessage(ctx.chat.id, `📦 Ваш заказ:\n${ctx.web_app_data.data}`);
+/* данные из mini-app */
+bot.on('web_app_data', ctx => {
+  bot.sendMessage(
+    ctx.chat.id,
+    `📦 Ваш заказ:\n${ctx.web_app_data.data}`
+  );
 });
 
-//--------------------------------------------------
+/* ----------  GO!  ---------- */
 app.listen(PORT, () =>
-  console.log(`✅  Express & Webhook listening on :${PORT}`)
+  console.log(`✅  Express & Bot listening on :${PORT}`)
 );
