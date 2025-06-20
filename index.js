@@ -23,7 +23,9 @@ const pool = new Pool({
 /* ----------  Express  ---------- */
 const app = express();
 app.use(express.json());
-app.get('/api/ping', …);
+app.get('/api/ping', (_req, res) => {
+   res.send('pong');
+});
 /* статика мини-приложения */
 app.use('/shop', express.static(path.join(__dirname, 'public')));
 
