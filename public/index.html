@@ -1,46 +1,120 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
   <title>Магазин</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Telegram Web App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- Стили -->
   <style>
-    body{font-family:sans-serif;margin:0;padding:1rem;background:#111;color:#fafafa}
-    h1{font-size:1.2rem}
-    .card{background:#222;border-radius:8px;padding:1rem;margin-bottom:1rem}
-    .btn{display:block;width:100%;padding:.7rem 1rem;margin-top:1rem;
-         background:#4caf50;border:none;border-radius:6px;color:#fff;font-size:1rem}
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background: #111;
+      color: #fafafa;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-size: 1.2rem;
+      margin: 0;
+    }
+    #checkout {
+      padding: 0.7rem 1rem;
+      background: #4caf50;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    #checkout:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    #products {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: #222;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .card button {
+      display: block;
+      width: 100%;
+      padding: 0.7rem 1rem;
+      margin-top: 0.5rem;
+      background: #2196f3;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <h1>💎 Тестовая витрина</h1>
+  <header>
+    <h1>💎 Витрина магазина</h1>
+    <button id="checkout" disabled>Оформить заказ</button>
+  </header>
 
-  <div id="list"></div>
+  <main id="products"></main>
 
   <script>
-    // пример товара
-    const products = [
-      { id:1, title:'Кулон стальной', price:380 },
-      { id:2, title:'Браслет кожаный', price:550 }
-    ];
+    // Инициализируем Telegram WebApp
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
 
-    const list = document.getElementById('list');
-    products.forEach(p=>{
-      const card = document.createElement('div');
-      card.className='card';
-      card.innerHTML = `<b>${p.title}</b><br>Цена: <b>${p.price} ₽</b>
-                        <button class="btn" onclick="buy(${p.id})">Купить</button>`;
-      list.appendChild(card);
-    });
+    let cart = [];
 
-    function buy(id){
-      Telegram.WebApp.showAlert('Заказ оформлен! (fake)');
+    // Загрузить список товаров из API
+    async function loadProducts() {
+      try {
+        const res = await fetch('/api/products');
+        const products = await res.json();
+        const container = document.getElementById('products');
+        products.forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+            <div><strong>${p.name}</strong></div>
+            <div>Артикул: ${p.article}</div>
+            <div>Размер: ${p.size}</div>
+            <button>В корзину</button>
+          `;
+          const btn = card.querySelector('button');
+          btn.onclick = () => {
+            cart.push(p);
+            document.getElementById('checkout').disabled = false;
+          };
+          container.appendChild(card);
+        });
+      } catch (err) {
+        console.error('Ошибка загрузки товаров', err);
+      }
     }
 
-    // настроим цвет кнопки «оплатить» внизу (если нужно)
-    Telegram.WebApp.ready();
-    Telegram.WebApp.expand();                   // разворачиваем на весь экран
+    // Обработка клика по кнопке "Оформить заказ"
+    document.getElementById('checkout').onclick = () => {
+      // отправляем JSON-строку с заказом в бота
+      tg.sendData(JSON.stringify(cart));
+    };
+
+    // Запускаем
+    loadProducts();
   </script>
 </body>
 </html>
