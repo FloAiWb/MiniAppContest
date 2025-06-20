@@ -1,19 +1,32 @@
-// src/routes/products.js
-import express from "express";
-import { pool } from "../db.js";
+/* routes/products.js — CommonJS */
+const express = require("express");
+const router  = express.Router();
 
-const router = express.Router();
+const { Pool } = require("pg");
+const db = new Pool({ connectionString: process.env.DATABASE_URL });
 
-router.get("/", async (_req, res) => {
+/**
+ * GET /api/products
+ * ?q=браслет    — поиск по названию
+ */
+router.get("/products", async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      "SELECT article, name, size FROM products ORDER BY name"
-    );
-    res.json(rows);                         // ← [{article,…}, …]
+    const q   = (req.query.q || "").trim();
+    const sql = q
+      ? `SELECT article, name, size
+           FROM products
+          WHERE name ILIKE $1
+          LIMIT 50`
+      : `SELECT article, name, size
+           FROM products
+          LIMIT 50`;
+
+    const { rows } = await db.query(sql, q ? [`%${q}%`] : []);
+    res.json(rows);
   } catch (err) {
-    console.error("DB error:", err);
+    console.error(err);
     res.status(500).json({ error: "DB error" });
   }
 });
 
-export default router;
+module.exports = router;           // ВАЖНО! Экспортируем сам Router
