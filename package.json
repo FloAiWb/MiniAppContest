@@ -4,7 +4,7 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"      // ← вот эта строка обязательна
+    "start": "node index.js"      
   },
   "dependencies": {
     "express": "^4.19.2",
