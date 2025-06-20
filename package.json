@@ -1,7 +1,6 @@
 {
   "name": "miniappcontest",
   "version": "0.0.1",
-  /*  "type": "module",   ← удалить */
   "scripts": {
     "start": "node index.js"
   },
