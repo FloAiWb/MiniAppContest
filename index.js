@@ -1,79 +1,62 @@
-// index.js
-//--------------------------------------------------
-//  Инициализация
-//--------------------------------------------------
-require("dotenv").config();        // .env (BOT_TOKEN, DATABASE_URL, …)
+/* index.js — CommonJS  */
+require("dotenv").config();         // .env (BOT_TOKEN, DATABASE_URL, BASE_URL …)
 
+const path         = require("path");
 const express      = require("express");
 const bodyParser   = require("body-parser");
 const TelegramBot  = require("node-telegram-bot-api");
+const productRoute = require("./routes/products");   // ← наш API-роутер
 
-// роут с товарами (./src/routes/products.js) — см. ниже
-const productsRouter = require("./src/routes/products");
-
-// порт / URL, которые задаёт Render
-const PORT = process.env.PORT      || 10000;
-const URL  = process.env.BASE_URL;             // https://<service>.onrender.com
-const TOKEN = process.env.BOT_TOKEN;
+const PORT  = process.env.PORT       || 10000;
+const TOKEN = process.env.BOT_TOKEN;                 // задаётся в Render → Environment
+const URL   = process.env.BASE_URL;                  // https://xxxx.onrender.com
 
 //--------------------------------------------------
-//  Express-приложение
+//  Express
 //--------------------------------------------------
 const app = express();
 app.use(bodyParser.json());
 
-// статические файлы мини-магазина
-app.use("/shop", express.static("public"));
+// статика мини-приложения (React/Vite билд лежит в public/)
+app.use("/shop", express.static(path.join(__dirname, "public")));
 
-/* ------------  API  ------------ */
+// JSON-API для мини-приложения
+app.use("/api", productRoute);      // ← теперь действительно Router, а не «Module»
 
-// JSON-эндпойнт «товары»
-app.use("/api/products", productsRouter);
-
-// тестовый эндпойнт «создание заказа» (можете переименовать)
+// тестовый энд-поинт «оплата» (можно убрать)
 app.post("/api/order", (req, res) => {
   console.log("[ORDER]", req.body);
   res.sendStatus(200);
 });
 
-// «живой» пинг для Render / UptimeRobot
-app.get("/", (_req, res) => res.send("OK"));
-
 //--------------------------------------------------
-//  Telegram Bot  (webhook)
+//  Telegram Bot — webhook
 //--------------------------------------------------
 const bot = new TelegramBot(TOKEN, { polling: false });
 bot.setWebHook(`${URL}/bot${TOKEN}`);
 
-// приём апдейтов от Telegram
+// входящие апдейты от Telegram
 app.post(`/bot${TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
 });
 
-// /start  → кнопка «Открыть магазин»
-bot.onText(/\/start/, msg => {
+// /start ➜ кнопка «Открыть магазин»
+bot.onText(/\/start/, (msg) => {
   bot.sendMessage(msg.chat.id, "Добро пожаловать!", {
     reply_markup: {
       inline_keyboard: [
-        [
-          {
-            text: "Открыть магазин 🛍️",
-            web_app: { url: `${URL}/shop` }
-          }
-        ]
-      ]
-    }
+        [{ text: "Открыть магазин 🛍️", web_app: { url: `${URL}/shop` } }],
+      ],
+    },
   });
 });
 
-// данные, пришедшие из Web-App (`window.Telegram.WebApp.sendData`)
-bot.on("web_app_data", ctx => {
+// данные, присланные из mini-app
+bot.on("web_app_data", (ctx) => {
   bot.sendMessage(ctx.chat.id, `📦 Ваш заказ:\n${ctx.web_app_data.data}`);
 });
 
-//--------------------------------------------------
-//  Старт сервера
 //--------------------------------------------------
 app.listen(PORT, () =>
   console.log(`✅  Express & Webhook listening on :${PORT}`)
