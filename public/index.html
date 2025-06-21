@@ -6,52 +6,51 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body { margin:0; padding:1rem; font-family:sans-serif; background:#111; color:#fafafa; }
-    h1   { font-size:1.2rem; }
-    .card{ background:#222; border-radius:8px; padding:1rem; margin-bottom:1rem; }
-    .btn { display:block; width:100%; padding:.7rem; margin-top:1rem;
-          background:#4caf50; border:none; border-radius:6px; color:#fff; font-size:1rem; }
-    img  { width:100%; border-radius:4px; margin-bottom:8px; }
+    body{font-family:sans-serif;margin:0;padding:1rem;background:#111;color:#fafafa}
+    h1{font-size:1.2rem}
+    .card{background:#222;border-radius:8px;padding:1rem;margin-bottom:1rem}
+    .btn{display:block;width:100%;padding:.7rem 1rem;margin-top:1rem;
+         background:#4caf50;border:none;border-radius:6px;color:#fff;font-size:1rem}
+    img{max-width:100%;border-radius:4px;margin-bottom:.5rem;}
   </style>
 </head>
 <body>
-  <h1>💎 Тестовая витрина</h1>
-  <div id="list"></div>
+  <h1>💎 Витрина</h1>
+  <div id="list">Загрузка…</div>
 
   <script>
-    const TOKEN = new URLSearchParams(location.search).get('tgWebAppInitData') || ''; // не используется в этом примере
-    // Загружаем товары с сервера
-    fetch('/api/products')
-      .then(r => r.json())
-      .then(products => {
-        const list = document.getElementById('list');
-        products.forEach(p => {
-          const card = document.createElement('div');
-          card.className = 'card';
-
-          let imgHtml = '';
-          if (p.photo_file_id) {
-            // прокси для файла
-            imgHtml = `<img src="/api/file/${p.photo_file_id}" />`;
-          }
-
-          card.innerHTML = `
-            ${imgHtml}
-            <b>${p.name}</b><br>
-            Цена: <b>${p.price_rub} ₽</b><br>
-            Размер: <b>${p.size||'—'}</b>
-            <button class="btn" onclick="buy('${p.article}')">Купить</button>
-          `;
-          list.appendChild(card);
-        });
-      });
-
-    function buy(article) {
-      Telegram.WebApp.sendData(JSON.stringify({ article }));
-    }
-
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
+
+    async function load() {
+      const res = await fetch('/api/products');
+      const products = await res.json();
+      const list = document.getElementById('list');
+      list.innerHTML = '';
+      products.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        let img = '';
+        if (p.photo_file_id) {
+          img = `<img src="https://api.telegram.org/file/bot${'${TOKEN}'}/${p.photo_file_id}" />`;
+        }
+        card.innerHTML = `
+          ${img}
+          <b>${p.name}</b><br>
+          Размер: <b>${p.size}</b><br>
+          Цена: <b>${p.price_rub} ₽</b>
+          <button class="btn" onclick="buy('${p.article}')">Купить</button>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function buy(article){
+      const data = JSON.stringify({ article, qty:1 });
+      Telegram.WebApp.sendData(data);
+    }
+
+    load();
   </script>
 </body>
 </html>
