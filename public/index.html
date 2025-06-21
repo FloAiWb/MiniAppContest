@@ -8,49 +8,82 @@
   <style>
     body{font-family:sans-serif;margin:0;padding:1rem;background:#111;color:#fafafa}
     h1{font-size:1.2rem}
+    .tabs {display:flex; gap:1rem; margin-bottom:1rem;}
+    .tab {cursor:pointer;padding:.5rem 1rem;border-radius:6px;}
+    .tab.active {background:#4caf50;}
     .card{background:#222;border-radius:8px;padding:1rem;margin-bottom:1rem}
-    .btn{display:block;width:100%;padding:.7rem 1rem;margin-top:1rem;
+    .btn{display:block;width:100%;padding:.7rem;margin-top:1rem;
          background:#4caf50;border:none;border-radius:6px;color:#fff;font-size:1rem}
-    img{max-width:100%;border-radius:4px;margin-bottom:.5rem;}
   </style>
 </head>
 <body>
-  <h1>💎 Витрина</h1>
-  <div id="list">Загрузка…</div>
+  <h1>💎 Витрина магазина</h1>
+
+  <div class="tabs" id="categories"></div>
+  <div id="list"></div>
 
   <script>
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
 
-    async function load() {
-      const res = await fetch('/api/products');
-      const products = await res.json();
+    let products = [];
+    let cats = [];
+
+    async function fetchProducts(category) {
+      const url = category
+        ? `/api/products?category=${encodeURIComponent(category)}`
+        : '/api/products';
+      products = await fetch(url).then(r=>r.json());
+      renderList();
+    }
+
+    function renderTabs() {
+      const set = new Set(products.map(p=>p.category).filter(Boolean));
+      cats = ['Все', ...set];
+      const container = document.getElementById('categories');
+      container.innerHTML = '';
+      cats.forEach(cat => {
+        const el = document.createElement('div');
+        el.textContent = cat;
+        el.className = 'tab' + (cat==='Все'?' active':'');
+        el.onclick = () => {
+          document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+          el.classList.add('active');
+          fetchProducts(cat==='Все'?null:cat);
+        };
+        container.appendChild(el);
+      });
+    }
+
+    function renderList() {
+      if (!cats.length) renderTabs();
       const list = document.getElementById('list');
       list.innerHTML = '';
       products.forEach(p => {
         const card = document.createElement('div');
         card.className = 'card';
-        let img = '';
-        if (p.photo_file_id) {
-          img = `<img src="https://api.telegram.org/file/bot${'7939348050:AAEZ-J2JdqFKuEVNYTxWLlDbD2vh71BglrU'}/${p.photo_file_id}" />`;
-        }
+        const img = p.photo_file_id
+          ? `<img src="https://api.telegram.org/file/bot${Telegram.WebApp.initDataUnsafe.user.id}/${p.photo_file_id}" style="max-width:100%;margin-bottom:1rem">`
+          : '';
         card.innerHTML = `
           ${img}
           <b>${p.name}</b><br>
-          Размер: <b>${p.size}</b><br>
-          Цена: <b>${p.price_rub} ₽</b>
-          <button class="btn" onclick="buy('${p.article}')">Купить</button>
-        `;
+          Артикул: ${p.article}<br>
+          Категория: ${p.category||'—'}<br>
+          Размер: ${p.size||'—'}<br>
+          Цена: <b>${p.price_rub!=null?p.price_rub+' ₽':'—'}</b>
+          <button class="btn" onclick="buy('${p.article}')">Купить</button>`;
         list.appendChild(card);
       });
     }
 
-    function buy(article){
-      const data = JSON.stringify({ article, qty:1 });
-      Telegram.WebApp.sendData(data);
+    function buy(article) {
+      Telegram.WebApp.sendData(JSON.stringify({article}));
+      Telegram.WebApp.showAlert(`Товар ${article} добавлен в корзину!`);
     }
 
-    load();
+    // initial
+    fetchProducts();
   </script>
 </body>
 </html>
