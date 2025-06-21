@@ -1,15 +1,21 @@
 {
   "name": "miniappcontest",
   "version": "1.0.0",
-  "type": "commonjs",
+  "description": "Telegram Web App + Express + PostgreSQL mini-shop",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node index.js"      
+    "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "dotenv":  "^16.4.5",
-    "pg":      "^8.11.5",
-    "node-telegram-bot-api": "^0.66.0"
-  }
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "node-telegram-bot-api": "^0.66.0",
+    "pg": "^8.10.0",
+    "path": "^0.12.7"
+  },
+  "engines": {
+    "node": ">=18 <23"
+  },
+  "license": "MIT"
 }
