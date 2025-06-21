@@ -1,120 +1,89 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8" />
-  <title>Магазин</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+// index.js
+// -------------------------------------------------
+//  Express-сервер + Telegram-бот + PostgreSQL
+// -------------------------------------------------
 
-  <!-- Telegram Web App SDK -->
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+require('dotenv').config();                // .env: BOT_TOKEN, DATABASE_URL, BASE_URL
 
-  <!-- Стили -->
-  <style>
-    body {
-      font-family: sans-serif;
-      margin: 0;
-      padding: 1rem;
-      background: #111;
-      color: #fafafa;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-    h1 {
-      font-size: 1.2rem;
-      margin: 0;
-    }
-    #checkout {
-      padding: 0.7rem 1rem;
-      background: #4caf50;
-      border: none;
-      border-radius: 6px;
-      color: #fff;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    #checkout:disabled {
-      background: #555;
-      cursor: not-allowed;
-    }
-    #products {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 1rem;
-    }
-    .card {
-      background: #222;
-      border-radius: 8px;
-      padding: 1rem;
-    }
-    .card button {
-      display: block;
-      width: 100%;
-      padding: 0.7rem 1rem;
-      margin-top: 0.5rem;
-      background: #2196f3;
-      border: none;
-      border-radius: 6px;
-      color: #fff;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>💎 Витрина магазина</h1>
-    <button id="checkout" disabled>Оформить заказ</button>
-  </header>
+const express     = require('express');
+const path        = require('path');
+const TelegramBot = require('node-telegram-bot-api');
+const { Pool }    = require('pg');
 
-  <main id="products"></main>
+const PORT  = process.env.PORT      || 10000;
+const URL   = process.env.BASE_URL;        // например https://miniappcontest-anin.onrender.com
+const TOKEN = process.env.BOT_TOKEN;
+const DB    = process.env.DATABASE_URL;    // строка подключения к Render-Postgres
 
-  <script>
-    // Инициализируем Telegram WebApp
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
+/* ----------  PostgreSQL  ---------- */
+const pool = new Pool({
+  connectionString: DB,
+  ssl: { rejectUnauthorized: false }       // Render-Postgres требует SSL
+});
 
-    let cart = [];
+/* ----------  Express  ---------- */
+const app = express();
+app.use(express.json());
 
-    // Загрузить список товаров из API
-    async function loadProducts() {
-      try {
-        const res = await fetch('/api/products');
-        const products = await res.json();
-        const container = document.getElementById('products');
-        products.forEach(p => {
-          const card = document.createElement('div');
-          card.className = 'card';
-          card.innerHTML = `
-            <div><strong>${p.name}</strong></div>
-            <div>Артикул: ${p.article}</div>
-            <div>Размер: ${p.size}</div>
-            <button>В корзину</button>
-          `;
-          const btn = card.querySelector('button');
-          btn.onclick = () => {
-            cart.push(p);
-            document.getElementById('checkout').disabled = false;
-          };
-          container.appendChild(card);
-        });
-      } catch (err) {
-        console.error('Ошибка загрузки товаров', err);
-      }
+/**
+ * Простая проверка «здоровья» сервиса
+ */
+app.get('/api/ping', (_req, res) => {
+  res.json({ ok: true });
+});
+
+/* статика мини-приложения (витрина) */
+app.use('/shop', express.static(path.join(__dirname, 'public')));
+
+/* REST-эндпоинт: список товаров */
+app.get('/api/products', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT article, name, size FROM products ORDER BY name'
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error('[api/products]', e);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
+/* «оформление заказа» – пока просто логируем */
+app.post('/api/order', (req, res) => {
+  console.log('[ORDER]', req.body);
+  res.sendStatus(200);
+});
+
+/* ----------  Telegram-бот  ---------- */
+const bot = new TelegramBot(TOKEN);
+bot.setWebHook(`${URL}/bot${TOKEN}`);
+
+/* Webhook-endpoint для Telegram */
+app.post(`/bot${TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
+/* /start ➜ кнопка «Открыть магазин» */
+bot.onText(/\/start/, msg => {
+  bot.sendMessage(msg.chat.id, 'Добро пожаловать!', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'Открыть магазин 🛍️', web_app: { url: `${URL}/shop` } }]
+      ]
     }
+  });
+});
 
-    // Обработка клика по кнопке "Оформить заказ"
-    document.getElementById('checkout').onclick = () => {
-      // отправляем JSON-строку с заказом в бота
-      tg.sendData(JSON.stringify(cart));
-    };
+/* обработка данных из mini-app */
+bot.on('web_app_data', ctx => {
+  bot.sendMessage(
+    ctx.chat.id,
+    `📦 Ваш заказ:\n${ctx.web_app_data.data}`
+  );
+});
 
-    // Запускаем
-    loadProducts();
-  </script>
-</body>
-</html>
+/* ----------  Стартуем сервер  ---------- */
+app.listen(PORT, () =>
+  console.log(`✅  Express & Bot listening on :${PORT}`)
+);
