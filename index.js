@@ -1,36 +1,33 @@
-// index.js
-require('dotenv').config();                // .env: BOT_TOKEN, DATABASE_URL, BASE_URL, ADMIN_ID
+require('dotenv').config();                // .env: BOT_TOKEN, DATABASE_URL, BASE_URL
 
 const express     = require('express');
 const path        = require('path');
 const TelegramBot = require('node-telegram-bot-api');
 const { Pool }    = require('pg');
 
-const PORT   = process.env.PORT      || 10000;
-const URL    = process.env.BASE_URL;          // например https://your-app.onrender.com
-const TOKEN  = process.env.BOT_TOKEN;
-const DB_URL = process.env.DATABASE_URL;      // строка подключения к Render-Postgres
-const ADMIN_ID = Number(process.env.ADMIN_ID);// Ваш Telegram-ID
+const PORT  = process.env.PORT      || 10000;
+const URL   = process.env.BASE_URL;        // https://<your-app>.onrender.com
+const TOKEN = process.env.BOT_TOKEN;
+const DB    = process.env.DATABASE_URL;    // строка подключения к Render-Postgres
 
-// Настройка PostgreSQL
+/* ----------  PostgreSQL  ---------- */
 const pool = new Pool({
-  connectionString: DB_URL,
+  connectionString: DB,
   ssl: { rejectUnauthorized: false }
 });
 
-// Инициализация Express
+/* ----------  Express  ---------- */
 const app = express();
 app.use(express.json());
 app.use('/shop', express.static(path.join(__dirname, 'public')));
 
-// REST: выдаём товары с учётом видимости
+/* GET /api/products — только публичные товары */
 app.get('/api/products', async (_req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT article, name, size, price_rub, photo_file_id 
+      SELECT article, name, size, price_rub, photo_file_id
         FROM products
-       WHERE is_public
-       ORDER BY name
+       WHERE is_public = true
     `);
     res.json(rows);
   } catch (e) {
@@ -39,96 +36,109 @@ app.get('/api/products', async (_req, res) => {
   }
 });
 
-// Логируем «заказы»
+/* POST /api/order — логируем заказ */
 app.post('/api/order', (req, res) => {
   console.log('[ORDER]', req.body);
   res.sendStatus(200);
 });
 
-// Инициализация Telegram Bot (webhook)
+/* ----------  Telegram-бот  ---------- */
 const bot = new TelegramBot(TOKEN, { polling: false });
 bot.setWebHook(`${URL}/bot${TOKEN}`);
+
+/* Endpoint для Webhook */
 app.post(`/bot${TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
 });
 
-// /start — гости + админ­кнопка
+/* /start ➔ кнопка «Открыть магазин» */
 bot.onText(/\/start/, msg => {
-  const keyboard = [
-    [{ text: 'Открыть магазин 🛍️', web_app: { url: `${URL}/shop` } }]
-  ];
-  if (msg.from.id === ADMIN_ID) {
-    keyboard.push([{ text: '⚙️ Админ-панель', callback_data: 'ADMIN_MENU' }]);
-  }
-  bot.sendMessage(msg.chat.id, 'Добро пожаловать!', {
-    reply_markup: { inline_keyboard: keyboard }
+  bot.sendMessage(msg.chat.id, 'Добро пожаловать в магазин!', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🛍️ Открыть витрину', web_app: { url: `${URL}/shop` } }]
+      ]
+    }
   });
 });
 
-// Обработка нажатий в админ-меню
-bot.on('callback_query', async q => {
-  const id = q.from.id;
-  if (id !== ADMIN_ID) return;
-
-  await bot.answerCallbackQuery(q.id);
-  if (q.data === 'ADMIN_MENU') {
-    return bot.sendMessage(id, '🛠 Выберите действие:', {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Изменить цену', callback_data: 'ADMIN_SET_PRICE' }],
-          [{ text: 'Загрузить фото', callback_data: 'ADMIN_SET_PHOTO' }]
-        ]
-      }
-    });
-  }
-
-  if (q.data === 'ADMIN_SET_PRICE') {
-    return bot.sendMessage(id, '❓ Введите: <артикул> <новая_цена>', {
-      reply_markup: { remove_keyboard: true }
-    });
-  }
-
-  if (q.data === 'ADMIN_SET_PHOTO') {
-    return bot.sendMessage(
-      id,
-      '❓ Впишите артикул, а затем _ответьте_ на это сообщение фотографией.',
-      { parse_mode: 'Markdown', reply_markup: { remove_keyboard: true } }
-    );
-  }
-});
-
-// Парсим текстовые сообщения от админа
-bot.on('message', async msg => {
-  const id = msg.from.id;
-  if (id !== ADMIN_ID) return;
-
-  // 1) Смена цены: «art123 1199»
-  if (msg.text && /^\S+\s+\d+$/.test(msg.text.trim())) {
-    const [article, priceStr] = msg.text.trim().split(/\s+/);
-    const price = Number(priceStr);
+/* Админ-команды */
+// (1) Установить цену: /set_price <артикул> <цена>
+bot.onText(/\/set_price\s+(\S+)\s+(\d+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const [ , article, price ] = match;
+  try {
     await pool.query(
       'UPDATE products SET price_rub = $1 WHERE article = $2',
       [price, article]
     );
-    return bot.sendMessage(id, `✅ Цена «${article}» = ${price} ₽`);
+    bot.sendMessage(chatId, `Цена товара ${article} установлена на ${price} ₽`);
+  } catch (e) {
+    console.error('[set_price]', e);
+    bot.sendMessage(chatId, 'Ошибка при установке цены.');
   }
+});
 
-  // 2) Загрузка фото (ответ на сообщение с артикулом)
-  if (msg.photo && msg.reply_to_message && msg.reply_to_message.text) {
-    const m = msg.reply_to_message.text.match(/(\S+)/);
-    const article = m ? m[1] : null;
-    if (!article) {
-      return bot.sendMessage(id, '❗️ Не найден артикул в исходном сообщении.');
-    }
-    const fileId = msg.photo.slice(-1)[0].file_id;
+// (2) Помещение товара в публичный каталог: /set_public <артикул> on|off
+bot.onText(/\/set_public\s+(\S+)\s+(on|off)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const [ , article, mode ] = match;
+  const isPublic = mode === 'on';
+  try {
+    await pool.query(
+      'UPDATE products SET is_public = $1 WHERE article = $2',
+      [isPublic, article]
+    );
+    bot.sendMessage(
+      chatId,
+      `Товар ${article} теперь ${isPublic ? 'публичный' : 'скрыт'}.`
+    );
+  } catch (e) {
+    console.error('[set_public]', e);
+    bot.sendMessage(chatId, 'Ошибка при смене статуса.');
+  }
+});
+
+// (3) Начинаем процедуру загрузки фото: /set_photo <артикул>
+const awaitingPhoto = new Map(); // chatId → article
+bot.onText(/\/set_photo\s+(\S+)/, (msg, match) => {
+  const chatId = msg.chat.id;
+  const article = match[1];
+  awaitingPhoto.set(chatId, article);
+  bot.sendMessage(chatId, `Пришлите фотографию для товара ${article}`);
+});
+
+// (4) При получении фото сохраняем file_id в БД
+bot.on('photo', async msg => {
+  const chatId = msg.chat.id;
+  if (!awaitingPhoto.has(chatId)) return;
+  const article = awaitingPhoto.get(chatId);
+  const photoArray = msg.photo;
+  const fileId = photoArray[photoArray.length - 1].file_id; // самый большой
+  try {
     await pool.query(
       'UPDATE products SET photo_file_id = $1 WHERE article = $2',
       [fileId, article]
     );
-    return bot.sendMessage(id, `✅ Фото для «${article}» сохранено.`);
+    bot.sendMessage(chatId, `Фотография для ${article} сохранена.`);
+  } catch (e) {
+    console.error('[set_photo]', e);
+    bot.sendMessage(chatId, 'Ошибка при сохранении фото.');
+  } finally {
+    awaitingPhoto.delete(chatId);
   }
 });
 
-// Старт сервера
-app.listen(PORT, () => console.log(`✅ Server & Bot listening on :${PORT}`));
+/* Данные из web-app (корзина) */
+bot.on('web_app_data', ctx => {
+  bot.sendMessage(
+    ctx.chat.id,
+    `📦 Ваш заказ:\n${ctx.web_app_data.data}`
+  );
+});
+
+/* Стартуем сервер */
+app.listen(PORT, () =>
+  console.log(`✅  Express & Bot listening on :${PORT}`)
+);
