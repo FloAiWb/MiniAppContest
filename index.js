@@ -1,6 +1,7 @@
-/*-------------------------------------------------
- *  index.js   —  Express-сервер + Telegram-бот
- *------------------------------------------------*/
+// index.js
+// -------------------------------------------------
+//  Express-сервер + Telegram-бот + PostgreSQL
+// -------------------------------------------------
 
 require('dotenv').config();                // .env: BOT_TOKEN, DATABASE_URL, BASE_URL
 
@@ -10,7 +11,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const { Pool }    = require('pg');
 
 const PORT  = process.env.PORT      || 10000;
-const URL   = process.env.BASE_URL;        // https://miniappcontest-anin.onrender.com
+const URL   = process.env.BASE_URL;        // например https://miniappcontest-anin.onrender.com
 const TOKEN = process.env.BOT_TOKEN;
 const DB    = process.env.DATABASE_URL;    // строка подключения к Render-Postgres
 
@@ -23,10 +24,15 @@ const pool = new Pool({
 /* ----------  Express  ---------- */
 const app = express();
 app.use(express.json());
+
+/**
+ * Простая проверка «здоровья» сервиса
+ */
 app.get('/api/ping', (_req, res) => {
-   res.send('pong');
+  res.json({ ok: true });
 });
-/* статика мини-приложения */
+
+/* статика мини-приложения (витрина) */
 app.use('/shop', express.static(path.join(__dirname, 'public')));
 
 /* REST-эндпоинт: список товаров */
@@ -42,7 +48,7 @@ app.get('/api/products', async (_req, res) => {
   }
 });
 
-/* «оформление заказа» – пока просто лог */
+/* «оформление заказа» – пока просто логируем */
 app.post('/api/order', (req, res) => {
   console.log('[ORDER]', req.body);
   res.sendStatus(200);
@@ -52,7 +58,7 @@ app.post('/api/order', (req, res) => {
 const bot = new TelegramBot(TOKEN);
 bot.setWebHook(`${URL}/bot${TOKEN}`);
 
-/* Webhook-endpoint */
+/* Webhook-endpoint для Telegram */
 app.post(`/bot${TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
@@ -69,7 +75,7 @@ bot.onText(/\/start/, msg => {
   });
 });
 
-/* данные из mini-app */
+/* обработка данных из mini-app */
 bot.on('web_app_data', ctx => {
   bot.sendMessage(
     ctx.chat.id,
@@ -77,7 +83,7 @@ bot.on('web_app_data', ctx => {
   );
 });
 
-/* ----------  GO!  ---------- */
+/* ----------  Стартуем сервер  ---------- */
 app.listen(PORT, () =>
   console.log(`✅  Express & Bot listening on :${PORT}`)
 );
