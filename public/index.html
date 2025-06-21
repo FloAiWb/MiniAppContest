@@ -1,89 +1,51 @@
-// index.js
-// -------------------------------------------------
-//  Express-сервер + Telegram-бот + PostgreSQL
-// -------------------------------------------------
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Магазин</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body{font-family:sans-serif;margin:0;padding:1rem;background:#111;color:#fafafa}
+    h1{font-size:1.2rem}
+    .card{background:#222;border-radius:8px;padding:1rem;margin-bottom:1rem}
+    .btn{display:block;width:100%;padding:.7rem 1rem;margin-top:1rem;
+         background:#4caf50;border:none;border-radius:6px;color:#fff;font-size:1rem}
+  </style>
+</head>
+<body>
+  <h1>💎 Тестовая витрина</h1>
 
-require('dotenv').config();                // .env: BOT_TOKEN, DATABASE_URL, BASE_URL
+  <div id="list"></div>
 
-const express     = require('express');
-const path        = require('path');
-const TelegramBot = require('node-telegram-bot-api');
-const { Pool }    = require('pg');
+  <script>
+    // заглушка: позже будем подгружать с /api/products
+    const products = [
+      { article:'1', title:'Кулон стальной', price:380, size:'—' },
+      { article:'2', title:'Браслет кожаный', price:550, size:'—' }
+    ];
 
-const PORT  = process.env.PORT      || 10000;
-const URL   = process.env.BASE_URL;        // например https://miniappcontest-anin.onrender.com
-const TOKEN = process.env.BOT_TOKEN;
-const DB    = process.env.DATABASE_URL;    // строка подключения к Render-Postgres
+    const list = document.getElementById('list');
+    products.forEach(p=>{
+      const card = document.createElement('div');
+      card.className='card';
+      card.innerHTML = `
+        <b>${p.title}</b><br>
+        Цена: <b>${p.price} ₽</b><br>
+        Размер: <b>${p.size}</b>
+        <button class="btn" onclick="buy('${p.article}')">Купить</button>
+      `;
+      list.appendChild(card);
+    });
 
-/* ----------  PostgreSQL  ---------- */
-const pool = new Pool({
-  connectionString: DB,
-  ssl: { rejectUnauthorized: false }       // Render-Postgres требует SSL
-});
-
-/* ----------  Express  ---------- */
-const app = express();
-app.use(express.json());
-
-/**
- * Простая проверка «здоровья» сервиса
- */
-app.get('/api/ping', (_req, res) => {
-  res.json({ ok: true });
-});
-
-/* статика мини-приложения (витрина) */
-app.use('/shop', express.static(path.join(__dirname, 'public')));
-
-/* REST-эндпоинт: список товаров */
-app.get('/api/products', async (_req, res) => {
-  try {
-    const { rows } = await pool.query(
-      'SELECT article, name, size FROM products ORDER BY name'
-    );
-    res.json(rows);
-  } catch (e) {
-    console.error('[api/products]', e);
-    res.status(500).json({ error: 'db_error' });
-  }
-});
-
-/* «оформление заказа» – пока просто логируем */
-app.post('/api/order', (req, res) => {
-  console.log('[ORDER]', req.body);
-  res.sendStatus(200);
-});
-
-/* ----------  Telegram-бот  ---------- */
-const bot = new TelegramBot(TOKEN);
-bot.setWebHook(`${URL}/bot${TOKEN}`);
-
-/* Webhook-endpoint для Telegram */
-app.post(`/bot${TOKEN}`, (req, res) => {
-  bot.processUpdate(req.body);
-  res.sendStatus(200);
-});
-
-/* /start ➜ кнопка «Открыть магазин» */
-bot.onText(/\/start/, msg => {
-  bot.sendMessage(msg.chat.id, 'Добро пожаловать!', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Открыть магазин 🛍️', web_app: { url: `${URL}/shop` } }]
-      ]
+    function buy(article){
+      const data = JSON.stringify({ article });
+      Telegram.WebApp.sendData(data);
     }
-  });
-});
 
-/* обработка данных из mini-app */
-bot.on('web_app_data', ctx => {
-  bot.sendMessage(
-    ctx.chat.id,
-    `📦 Ваш заказ:\n${ctx.web_app_data.data}`
-  );
-});
-
-/* ----------  Стартуем сервер  ---------- */
-app.listen(PORT, () =>
-  console.log(`✅  Express & Bot listening on :${PORT}`)
-);
+    // готовность и разворот на весь экран
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+  </script>
+</body>
+</html>
